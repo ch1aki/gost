@@ -7,6 +7,13 @@ A CLI command to simply compute statistics.
 ## Installing
 
 ```
+brew tap ch1aki/homebrew-gost
+brew install gost
+```
+
+or
+
+```
 $ go get -u github.com/ch1aki/gost
 ```
 
