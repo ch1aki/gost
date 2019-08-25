@@ -10,14 +10,6 @@ steps:
   commands:
   - go test -v
 
-- name: build
-  image: golang
-  volumes:
-  - name: deps
-    path: /go
-  commands:
-  - go build
-
 - name: fetch
   image: docker:git
   commands:
