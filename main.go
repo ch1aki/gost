@@ -1,62 +1,40 @@
 package main
 
 import (
-	"bufio"
 	"fmt"
-	"github.com/urfave/cli"
-	"io"
-	"log"
 	"os"
-	"strconv"
+
+	st "github.com/ch1aki/gost/lib"
+	"github.com/jessevdk/go-flags"
 )
 
-func main() {
-
-	app := cli.NewApp()
-	app.Name = "gost"
-	app.Usage = "simple compute statistics"
-	app.Version = "0.1.0"
-
-	app.Action = func(c *cli.Context) error {
-		i, err := stdinParser(os.Stdin)
-		if err != nil {
-			log.Fatal(err)
-			os.Exit(1)
-		}
-
-		r, err := St(i)
-		if err != nil {
-			log.Fatal(err)
-			os.Exit(1)
-		}
-
-		fmt.Printf("N\tmin\tmax\tsum\tmean\tstddev\n")
-		fmt.Printf("%d\t%g\t%g\t%g\t%g\t%g\n", r.Count, r.Min, r.Max, r.Sum, r.Mean, r.Stddev)
-
-		return nil
-	}
-
-	app.Run(os.Args)
-
+type options struct {
+	Version func() `short:"v" long:"version" description:"show version"`
 }
 
-func stdinParser(stdin io.Reader) ([]float64, error) {
-	buf := make([]float64, 0)
-	s := bufio.NewScanner(stdin)
+func main() {
+	var opts options
 
-	for s.Scan() {
-		f, err := strconv.ParseFloat(s.Text(), 64)
-		if err != nil {
-			log.Fatal(err)
-			return nil, err
-		}
-
-		buf = append(buf, f)
+	opts.Version = func() {
+		fmt.Println("0.0.2")
+		os.Exit(0)
+	}
+	_, err := flags.Parse(&opts)
+	if err != nil {
+		os.Exit(1)
 	}
 
-	if s.Err() != nil {
-		log.Fatal(s.Err())
+	i, err := st.StdinParser(os.Stdin)
+	if err != nil {
+		os.Exit(1)
 	}
 
-	return buf, nil
+	r, err := st.St(i)
+	if err != nil {
+		os.Exit(1)
+	}
+
+	fmt.Printf("N\tmin\tmax\tsum\tmean\tstddev\n")
+	fmt.Printf("%d\t%g\t%g\t%g\t%g\t%g\n", r.Count, r.Min, r.Max, r.Sum, r.Mean, r.Stddev)
+
 }
