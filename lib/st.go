@@ -1,8 +1,9 @@
-package main
+package st
 
 import (
-	"github.com/montanaflynn/stats"
 	"log"
+
+	"github.com/montanaflynn/stats"
 )
 
 type Results struct {
