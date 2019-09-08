@@ -8,7 +8,7 @@ A CLI command to simply compute statistics.
 
 ```
 brew tap ch1aki/homebrew-gost
-brew install gost
+brew install ch1aki/gost/gost
 ```
 
 or
