@@ -8,7 +8,7 @@ steps:
   - name: deps
     path: /go
   commands:
-  - go test -v
+  - go test ./... -v
 
 - name: fetch
   image: docker:git
