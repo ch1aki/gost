@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	st "github.com/ch1aki/gost/lib"
 	"github.com/jessevdk/go-flags"
@@ -10,6 +11,7 @@ import (
 
 type options struct {
 	Version func() `short:"v" long:"version" description:"show version"`
+	Format  string `short:"f" long:"format" default:"%g" description:"outpuut format"`
 }
 
 func main() {
@@ -34,7 +36,8 @@ func main() {
 		os.Exit(1)
 	}
 
+	template := strings.Replace("%d\t{}\t{}\t{}\t{}\t{}\n", "{}", opts.Format, -1)
 	fmt.Printf("N\tmin\tmax\tsum\tmean\tstddev\n")
-	fmt.Printf("%d\t%g\t%g\t%g\t%g\t%g\n", r.Count, r.Min, r.Max, r.Sum, r.Mean, r.Stddev)
+	fmt.Printf(template, r.Count, r.Min, r.Max, r.Sum, r.Mean, r.Stddev)
 
 }

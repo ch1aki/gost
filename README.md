@@ -20,6 +20,18 @@ $ go get -u github.com/ch1aki/gost
 ## Usage
 
 ```
+Usage:
+  main [OPTIONS]
+
+Application Options:
+  -v, --version  show version
+  -f, --format=
+
+Help Options:
+  -h, --help     Show this help message
+```
+
+```
 $ seq 1 100 | gost
 N       min     max     sum     mean    stddev
 100     1       100     5050    50.5    29.011491975882016
