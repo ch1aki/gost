@@ -1,29 +1,26 @@
 package st
 
 import (
+	"bytes"
 	"fmt"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
 )
 
-func TestSt(t *testing.T) {
-	expected := &Results{
-		Count:    10,
-		Min:      0,
-		Max:      9,
-		Sum:      45,
-		Mean:     4.5,
-		Stddev:   3.0276503540974917,
-		Variance: 9.166666666666666,
-	}
-	input := []float64{0, 1, 2, 3, 4, 5, 6, 7, 8, 9}
-	actual, err := St(input)
-	if err != nil {
-		t.Fatalf("failed test %#v", err)
-	}
+func TestPlainTextFromatter(t *testing.T) {
+	stdout := new(bytes.Buffer)
+	st := St{Formatter: PlainTextFormatter}
 
-	if diff := cmp.Diff(expected, actual); diff != "" {
+	for _, v := range []float64{0, 1, 2, 3, 4, 5, 6, 7, 8, 9} {
+		st.Process(v)
+	}
+	st.Output(stdout)
+
+	expected := `N 	MIN	MAX	SUM	MEAN	STDDEV             
+10	0  	9  	45 	4.5 	3.0276503540974917	
+`
+	if diff := cmp.Diff(expected, stdout.String()); diff != "" {
 		fmt.Printf("expected != actual\n%s\n", diff)
 	}
 }
