@@ -1,9 +1,11 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
+	"log"
 	"os"
-	"strings"
+	"strconv"
 
 	st "github.com/ch1aki/gost/lib"
 	"github.com/jessevdk/go-flags"
@@ -18,7 +20,7 @@ func main() {
 	var opts options
 
 	opts.Version = func() {
-		fmt.Println("0.0.3")
+		fmt.Println("0.0.4")
 		os.Exit(0)
 	}
 	_, err := flags.Parse(&opts)
@@ -26,18 +28,18 @@ func main() {
 		os.Exit(1)
 	}
 
-	i, err := st.StdinParser(os.Stdin)
-	if err != nil {
-		os.Exit(1)
+	s := st.St{Formatter: st.PlainTextFormatter}
+
+	scanner := bufio.NewScanner(os.Stdin)
+	for scanner.Scan() {
+		f, err := strconv.ParseFloat(scanner.Text(), 64)
+		if err != nil {
+			log.Fatal(err)
+			os.Exit(1)
+		}
+
+		s.Process(f)
 	}
 
-	r, err := st.St(i)
-	if err != nil {
-		os.Exit(1)
-	}
-
-	template := strings.Replace("%d\t{}\t{}\t{}\t{}\t{}\n", "{}", opts.Format, -1)
-	fmt.Printf("N\tmin\tmax\tsum\tmean\tstddev\n")
-	fmt.Printf(template, r.Count, r.Min, r.Max, r.Sum, r.Mean, r.Stddev)
-
+	s.Output(os.Stdout)
 }

@@ -1,56 +1,82 @@
 package st
 
 import (
-	"log"
+	"io"
+	"math"
+	"strconv"
 
-	"github.com/montanaflynn/stats"
+	"github.com/olekukonko/tablewriter"
 )
 
-type Results struct {
-	Count                                 int
-	Min, Max, Sum, Mean, Stddev, Variance float64
+type St struct {
+	Formatter func(writer io.Writer, header []string, data [][]string)
+
+	count    int64
+	min      float64
+	max      float64
+	sum      float64
+	mean     float64
+	stddev   float64
+	variance float64
+	sumsq    float64
 }
 
-func St(input []float64) (*Results, error) {
-
-	count := len(input)
-
-	min, err := stats.Min(input)
-	if err != nil {
-		log.Fatal(err)
-		return nil, err
+func (s *St) Process(input float64) {
+	if s.count == 0 {
+		s.min = input
+		s.max = input
 	}
 
-	max, err := stats.Max(input)
-	if err != nil {
-		log.Fatal(err)
-		return nil, err
+	s.count++
+
+	s.sum += input
+
+	if s.min > input {
+		s.min = input
 	}
 
-	sum, err := stats.Sum(input)
-	if err != nil {
-		log.Fatal(err)
-		return nil, err
+	if s.max < input {
+		s.max = input
 	}
 
-	mean, err := stats.Mean(input)
-	if err != nil {
-		log.Fatal(err)
-		return nil, err
+	oldM := s.mean
+	s.mean += (input - s.mean) / float64(s.count)
+
+	s.sumsq += (input - s.mean) * (input - oldM)
+	s.variance = s.sumsq / float64(s.count-1)
+
+	s.stddev = math.Sqrt(s.variance)
+}
+
+func (s *St) Output(writer io.Writer) {
+	header := []string{"N", "MIN", "MAX", "SUM", "MEAN", "STDDEV"}
+	data := [][]string{
+		[]string{
+			strconv.FormatInt(s.count, 10),
+			strconv.FormatFloat(s.min, 'f', -1, 64),
+			strconv.FormatFloat(s.max, 'f', -1, 64),
+			strconv.FormatFloat(s.sum, 'f', -1, 64),
+			strconv.FormatFloat(s.mean, 'f', -1, 64),
+			strconv.FormatFloat(s.stddev, 'f', -1, 64),
+		},
 	}
+	s.Formatter(writer, header, data)
+}
 
-	stddev, err := stats.StdDevS(input)
-	if err != nil {
-		log.Fatal(err)
-		return nil, err
-	}
-
-	variance, err := stats.VarS(input)
-	if err != nil {
-		log.Fatal(err)
-		return nil, err
-	}
-
-	return &Results{Count: count, Min: min, Max: max, Sum: sum, Mean: mean, Stddev: stddev, Variance: variance}, nil
-
+func PlainTextFormatter(writer io.Writer, header []string, data [][]string) {
+	table := tablewriter.NewWriter(writer)
+	table.SetHeader(header)
+	table.SetAutoFormatHeaders(true)
+	table.SetHeaderAlignment(tablewriter.ALIGN_LEFT)
+	table.SetAlignment(tablewriter.ALIGN_LEFT)
+	table.SetCenterSeparator("")
+	table.SetColumnSeparator("")
+	table.SetRowSeparator("")
+	table.SetHeaderLine(false)
+	table.SetBorder(false)
+	table.SetTablePadding("\t")
+	table.SetNoWhiteSpace(true)
+	table.SetBorder(false)
+	table.AppendBulk(data)
+	table.Render()
 }
