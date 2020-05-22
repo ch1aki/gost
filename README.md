@@ -33,6 +33,7 @@ Application Options:
   -m, --mean      mean
       --sd        standard deviation
       --variance  variance
+      --markdown  markdown table format
 
 Help Options:
   -h, --help      Show this help message
@@ -42,6 +43,11 @@ Help Options:
 $ seq 1 100 | gost
 N       MIN     MAX     SUM     MEAN    STDDEV             
 100     1       100     5050    50.5    29.011491975882016
+
+$ seq 1 100 | gost --markdown
+|  N  | MIN | MAX | SUM  | MEAN |       STDDEV       |
+|-----|-----|-----|------|------|--------------------|
+| 100 |   1 | 100 | 5050 | 50.5 | 29.011491975882016 |
 ```
 
 ## Authors

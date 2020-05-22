@@ -21,13 +21,14 @@ type options struct {
 	Mean     bool   `short:"m" long:"mean" description:"mean"`
 	Stddev   bool   `long:"sd" description:"standard deviation"`
 	Vatiance bool   `long:"variance" description:"variance"`
+	Markdown bool   `long:"markdown" description:"markdown table format"`
 }
 
 func main() {
 	var opts options
 
 	opts.Version = func() {
-		fmt.Println("0.0.4")
+		fmt.Println("0.1.1")
 		os.Exit(0)
 	}
 	_, err := flags.Parse(&opts)
@@ -35,8 +36,13 @@ func main() {
 		os.Exit(1)
 	}
 
+	f := st.PlainTextFormatter
+	if opts.Markdown {
+		f = st.MarkdownTableFormatter
+	}
+
 	s := st.St{
-		Formatter: st.PlainTextFormatter,
+		Formatter: f,
 
 		Count:    opts.Count,
 		Min:      opts.Min,

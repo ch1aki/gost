@@ -110,3 +110,12 @@ func PlainTextFormatter(writer io.Writer, header []string, data [][]string) {
 	table.AppendBulk(data)
 	table.Render()
 }
+
+func MarkdownTableFormatter(writer io.Writer, header []string, data [][]string) {
+	table := tablewriter.NewWriter(writer)
+	table.SetHeader(header)
+	table.SetBorders(tablewriter.Border{Left: true, Top: false, Right: true, Bottom: false})
+	table.SetCenterSeparator("|")
+	table.AppendBulk(data)
+	table.Render()
+}
