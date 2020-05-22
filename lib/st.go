@@ -58,27 +58,29 @@ func (s *St) Output(writer io.Writer) {
 	header := []string{}
 	data := []string{}
 
-	if s.Count {
+	defaults := !(s.Count || s.Min || s.Max || s.Sum || s.Mean || s.Stddev)
+
+	if defaults || s.Count {
 		header = append(header, "N")
 		data = append(data, strconv.FormatInt(s.count, 10))
 	}
-	if s.Min {
+	if defaults || s.Min {
 		header = append(header, "MIN")
 		data = append(data, strconv.FormatFloat(s.min, 'f', -1, 64))
 	}
-	if s.Max {
+	if defaults || s.Max {
 		header = append(header, "MAX")
 		data = append(data, strconv.FormatFloat(s.max, 'f', -1, 64))
 	}
-	if s.Sum {
+	if defaults || s.Sum {
 		header = append(header, "SUM")
 		data = append(data, strconv.FormatFloat(s.sum, 'f', -1, 64))
 	}
-	if s.Mean {
+	if defaults || s.Mean {
 		header = append(header, "MEAN")
 		data = append(data, strconv.FormatFloat(s.mean, 'f', -1, 64))
 	}
-	if s.Stddev {
+	if defaults || s.Stddev {
 		header = append(header, "STDDEV")
 		data = append(data, strconv.FormatFloat(s.stddev, 'f', -1, 64))
 	}

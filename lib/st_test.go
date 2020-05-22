@@ -9,7 +9,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 )
 
-func TestOption(t *testing.T) {
+func TestSetOption(t *testing.T) {
 	w := new(bytes.Buffer)
 	st := St{
 		Formatter: func(writer io.Writer, header []string, data [][]string) {
@@ -21,6 +21,20 @@ func TestOption(t *testing.T) {
 	st.Output(w)
 
 	if diff := cmp.Diff(w.String(), "SUM"); diff != "" {
+		t.Errorf("expected != actual\n%s\n", diff)
+	}
+}
+func TestNoOption(t *testing.T) {
+	w := new(bytes.Buffer)
+	st := St{
+		Formatter: func(writer io.Writer, header []string, data [][]string) {
+			s := []byte(strings.Join(header, ","))
+			writer.Write(s)
+		},
+	}
+	st.Output(w)
+
+	if diff := cmp.Diff(w.String(), "N,MIN,MAX,SUM,MEAN,STDDEV"); diff != "" {
 		t.Errorf("expected != actual\n%s\n", diff)
 	}
 }
