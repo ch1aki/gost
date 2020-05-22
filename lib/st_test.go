@@ -24,7 +24,7 @@ func TestSetOption(t *testing.T) {
 		t.Errorf("expected != actual\n%s\n", diff)
 	}
 }
-func TestNoOption(t *testing.T) {
+func TestDefaultOption(t *testing.T) {
 	w := new(bytes.Buffer)
 	st := St{
 		Formatter: func(writer io.Writer, header []string, data [][]string) {
@@ -35,6 +35,22 @@ func TestNoOption(t *testing.T) {
 	st.Output(w)
 
 	if diff := cmp.Diff(w.String(), "N,MIN,MAX,SUM,MEAN,STDDEV"); diff != "" {
+		t.Errorf("expected != actual\n%s\n", diff)
+	}
+}
+
+func TestNotDefaultOption(t *testing.T) {
+	w := new(bytes.Buffer)
+	st := St{
+		Formatter: func(writer io.Writer, header []string, data [][]string) {
+			s := []byte(strings.Join(header, ","))
+			writer.Write(s)
+		},
+		Variance: true,
+	}
+	st.Output(w)
+
+	if diff := cmp.Diff(w.String(), "VARIANCE"); diff != "" {
 		t.Errorf("expected != actual\n%s\n", diff)
 	}
 }

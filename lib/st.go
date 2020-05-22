@@ -16,6 +16,7 @@ type St struct {
 	Sum       bool
 	Mean      bool
 	Stddev    bool
+	Variance  bool
 
 	count    int64
 	min      float64
@@ -58,7 +59,7 @@ func (s *St) Output(writer io.Writer) {
 	header := []string{}
 	data := []string{}
 
-	defaults := !(s.Count || s.Min || s.Max || s.Sum || s.Mean || s.Stddev)
+	defaults := !(s.Count || s.Min || s.Max || s.Sum || s.Mean || s.Stddev || s.Variance)
 
 	if defaults || s.Count {
 		header = append(header, "N")
@@ -83,6 +84,10 @@ func (s *St) Output(writer io.Writer) {
 	if defaults || s.Stddev {
 		header = append(header, "STDDEV")
 		data = append(data, strconv.FormatFloat(s.stddev, 'f', -1, 64))
+	}
+	if s.Variance {
+		header = append(header, "VARIANCE")
+		data = append(data, strconv.FormatFloat(s.variance, 'f', -1, 64))
 	}
 
 	s.Formatter(writer, header, [][]string{data})
