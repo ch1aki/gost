@@ -2,15 +2,41 @@ package st
 
 import (
 	"bytes"
-	"fmt"
+	"io"
+	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
 )
 
+func TestOption(t *testing.T) {
+	w := new(bytes.Buffer)
+	st := St{
+		Formatter: func(writer io.Writer, header []string, data [][]string) {
+			s := []byte(strings.Join(header, ","))
+			writer.Write(s)
+		},
+		Sum: true,
+	}
+	st.Output(w)
+
+	if diff := cmp.Diff(w.String(), "SUM"); diff != "" {
+		t.Errorf("expected != actual\n%s\n", diff)
+	}
+}
+
 func TestPlainTextFromatter(t *testing.T) {
 	stdout := new(bytes.Buffer)
-	st := St{Formatter: PlainTextFormatter}
+	st := St{
+		Formatter: PlainTextFormatter,
+
+		Count:  true,
+		Min:    true,
+		Max:    true,
+		Sum:    true,
+		Mean:   true,
+		Stddev: true,
+	}
 
 	for _, v := range []float64{0, 1, 2, 3, 4, 5, 6, 7, 8, 9} {
 		st.Process(v)
@@ -21,6 +47,6 @@ func TestPlainTextFromatter(t *testing.T) {
 10	0  	9  	45 	4.5 	3.0276503540974917	
 `
 	if diff := cmp.Diff(expected, stdout.String()); diff != "" {
-		fmt.Printf("expected != actual\n%s\n", diff)
+		t.Errorf("expected != actual\n%s\n", diff)
 	}
 }
