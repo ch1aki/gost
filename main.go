@@ -28,7 +28,7 @@ func main() {
 	var opts options
 
 	opts.Version = func() {
-		fmt.Println("0.0.4")
+		fmt.Println("0.1.1")
 		os.Exit(0)
 	}
 	_, err := flags.Parse(&opts)
