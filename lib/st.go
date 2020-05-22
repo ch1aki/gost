@@ -10,6 +10,13 @@ import (
 
 type St struct {
 	Formatter func(writer io.Writer, header []string, data [][]string)
+	Count     bool
+	Min       bool
+	Max       bool
+	Sum       bool
+	Mean      bool
+	Stddev    bool
+	Variance  bool
 
 	count    int64
 	min      float64
@@ -49,18 +56,41 @@ func (s *St) Process(input float64) {
 }
 
 func (s *St) Output(writer io.Writer) {
-	header := []string{"N", "MIN", "MAX", "SUM", "MEAN", "STDDEV"}
-	data := [][]string{
-		[]string{
-			strconv.FormatInt(s.count, 10),
-			strconv.FormatFloat(s.min, 'f', -1, 64),
-			strconv.FormatFloat(s.max, 'f', -1, 64),
-			strconv.FormatFloat(s.sum, 'f', -1, 64),
-			strconv.FormatFloat(s.mean, 'f', -1, 64),
-			strconv.FormatFloat(s.stddev, 'f', -1, 64),
-		},
+	header := []string{}
+	data := []string{}
+
+	defaults := !(s.Count || s.Min || s.Max || s.Sum || s.Mean || s.Stddev || s.Variance)
+
+	if defaults || s.Count {
+		header = append(header, "N")
+		data = append(data, strconv.FormatInt(s.count, 10))
 	}
-	s.Formatter(writer, header, data)
+	if defaults || s.Min {
+		header = append(header, "MIN")
+		data = append(data, strconv.FormatFloat(s.min, 'f', -1, 64))
+	}
+	if defaults || s.Max {
+		header = append(header, "MAX")
+		data = append(data, strconv.FormatFloat(s.max, 'f', -1, 64))
+	}
+	if defaults || s.Sum {
+		header = append(header, "SUM")
+		data = append(data, strconv.FormatFloat(s.sum, 'f', -1, 64))
+	}
+	if defaults || s.Mean {
+		header = append(header, "MEAN")
+		data = append(data, strconv.FormatFloat(s.mean, 'f', -1, 64))
+	}
+	if defaults || s.Stddev {
+		header = append(header, "STDDEV")
+		data = append(data, strconv.FormatFloat(s.stddev, 'f', -1, 64))
+	}
+	if s.Variance {
+		header = append(header, "VARIANCE")
+		data = append(data, strconv.FormatFloat(s.variance, 'f', -1, 64))
+	}
+
+	s.Formatter(writer, header, [][]string{data})
 }
 
 func PlainTextFormatter(writer io.Writer, header []string, data [][]string) {

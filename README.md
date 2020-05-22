@@ -21,19 +21,26 @@ $ go get -u github.com/ch1aki/gost
 
 ```
 Usage:
-  main [OPTIONS]
+  gost [OPTIONS]
 
 Application Options:
-  -v, --version  show version
-  -f, --format=
+  -v, --version   show version
+  -f, --format=   outpuut format (default: %g)
+  -N, --count     sample size
+      --min       minimum
+      --max       maximum
+      --sum       sum of elements of the sample
+  -m, --mean      mean
+      --sd        standard deviation
+      --variance  variance
 
 Help Options:
-  -h, --help     Show this help message
+  -h, --help      Show this help message
 ```
 
 ```
 $ seq 1 100 | gost
-N       min     max     sum     mean    stddev
+N       MIN     MAX     SUM     MEAN    STDDEV             
 100     1       100     5050    50.5    29.011491975882016
 ```
 
