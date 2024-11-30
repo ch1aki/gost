@@ -1,7 +1,5 @@
 # gost
 
-[![Build Status](https://cloud.drone.io/api/badges/ch1aki/gost/status.svg)](https://cloud.drone.io/ch1aki/gost)
-
 A CLI command to simply compute statistics.
 
 ## Installing
