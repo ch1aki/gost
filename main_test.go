@@ -14,6 +14,19 @@ import (
 	"github.com/google/go-cmp/cmp"
 )
 
+func TestVersion(t *testing.T) {
+	if version != "dev" {
+		t.Fatalf("version = %q, want dev unless ldflags set it", version)
+	}
+	b, err := os.ReadFile(".goreleaser.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(b), "-X main.version={{ .Version }}") {
+		t.Fatal("goreleaser ldflags do not set main.version")
+	}
+}
+
 func TestHelpExitsZero(t *testing.T) {
 	for _, arg := range []string{"-h", "--help"} {
 		t.Run(arg, func(t *testing.T) {

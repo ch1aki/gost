@@ -14,6 +14,9 @@ import (
 	"github.com/jessevdk/go-flags"
 )
 
+// version is overridden by goreleaser: -X main.version={{ .Version }}
+var version = "dev"
+
 type options struct {
 	Version    func() `short:"v" long:"version" description:"show version"`
 	Format     string `short:"f" long:"format" description:"fmt format for float columns (default: fixed-point decimal)"`
@@ -23,7 +26,7 @@ type options struct {
 	Sum        bool   `long:"sum" description:"sum of elements of the sample"`
 	Mean       bool   `short:"m" long:"mean" description:"mean"`
 	Stddev     bool   `long:"sd" description:"standard deviation"`
-	Vatiance   bool   `long:"variance" description:"variance"`
+	Variance   bool   `long:"variance" description:"variance"`
 	Population bool   `long:"population" description:"population variance and standard deviation"`
 	Markdown   bool   `long:"markdown" description:"markdown table format"`
 }
@@ -37,7 +40,7 @@ func main() {
 func cli(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	var opts options
 	opts.Version = func() {
-		fmt.Fprintln(stdout, "0.1.1")
+		fmt.Fprintln(stdout, version)
 		os.Exit(0)
 	}
 	parser := flags.NewParser(&opts, flags.Default)
@@ -71,7 +74,7 @@ func cli(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 		Sum:        opts.Sum,
 		Mean:       opts.Mean,
 		Stddev:     opts.Stddev,
-		Variance:   opts.Vatiance,
+		Variance:   opts.Variance,
 		Population: opts.Population,
 	}
 

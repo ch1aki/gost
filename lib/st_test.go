@@ -59,7 +59,7 @@ func TestNotDefaultOption(t *testing.T) {
 	checkDiff(t, "VARIANCE", w.String())
 }
 
-func TestPlainTextFromatter(t *testing.T) {
+func TestPlainTextFormatter(t *testing.T) {
 	stdout := new(bytes.Buffer)
 	st := St{
 		Formatter: PlainTextFormatter,
@@ -83,7 +83,7 @@ func TestPlainTextFromatter(t *testing.T) {
 	checkDiff(t, expected, stdout.String())
 }
 
-func TestMarkdownTableFromatter(t *testing.T) {
+func TestMarkdownTableFormatter(t *testing.T) {
 	stdout := new(bytes.Buffer)
 	st := St{
 		Formatter: MarkdownTableFormatter,
