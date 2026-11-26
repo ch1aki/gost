@@ -23,7 +23,7 @@ func TestHelpExitsZero(t *testing.T) {
 			if code != 0 {
 				t.Fatalf("cli(%s) = %d, want 0\n%s", arg, code, text)
 			}
-			if !strings.Contains(text, "output format") || strings.Contains(text, "outpuut") {
+			if !strings.Contains(text, "fixed-point decimal") || strings.Contains(text, "outpuut") || strings.Contains(text, "default: %g") {
 				t.Fatalf("help text = %q", text)
 			}
 		})
@@ -31,7 +31,7 @@ func TestHelpExitsZero(t *testing.T) {
 }
 
 func TestInvalidFormatExits(t *testing.T) {
-	for _, format := range []string{"%d", "%s", "hello", ""} {
+	for _, format := range []string{"%d", "%s", "hello"} {
 		t.Run(format, func(t *testing.T) {
 			restore := captureOS(t)
 			defer restore()
@@ -47,6 +47,37 @@ func TestInvalidFormatExits(t *testing.T) {
 				t.Errorf("stderr mismatch (-want +got):\n%s", diff)
 			}
 		})
+	}
+}
+
+func TestDefaultFormatFixedPoint(t *testing.T) {
+	restore := captureOS(t)
+	defer restore()
+	var b strings.Builder
+	for i := 1; i <= 10000; i++ {
+		fmt.Fprintf(&b, "%d\n", i)
+	}
+	var stdout, stderr bytes.Buffer
+	code := cli([]string{"--sum", "--max"}, strings.NewReader(b.String()), &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("cli() = %d, stderr = %s", code, stderr.String())
+	}
+	out := stdout.String()
+	if !strings.Contains(out, "50005000") || !strings.Contains(out, "10000") {
+		t.Fatalf("stdout = %q, want fixed-point sum and max", out)
+	}
+	if strings.Contains(out, "e+") || strings.Contains(out, "e-") {
+		t.Fatalf("stdout = %q, default format used exponent", out)
+	}
+
+	stdout.Reset()
+	stderr.Reset()
+	code = cli([]string{"--max"}, strings.NewReader("0.0000001\n"), &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("cli() = %d, stderr = %s", code, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "0.0000001") || strings.Contains(stdout.String(), "e-") {
+		t.Fatalf("stdout = %q, want fixed-point small value", stdout.String())
 	}
 }
 

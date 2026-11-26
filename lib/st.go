@@ -11,8 +11,8 @@ import (
 
 type St struct {
 	Formatter func(writer io.Writer, header []string, data [][]string)
-	// Format is a fmt verb string applied to float columns. Empty means %g.
-	// N is always printed as an integer.
+	// Format is an explicit fmt verb for float columns. Empty keeps the
+	// historical fixed-point formatting. N is always an integer.
 	Format   string
 	Count    bool
 	Min      bool
@@ -97,13 +97,13 @@ func (s *St) Output(writer io.Writer) {
 	s.Formatter(writer, header, [][]string{data})
 }
 
-// formatFloat applies St.Format to one float. An empty format is %g.
+// formatFloat prints v. With no Format, this matches
+// strconv.FormatFloat(v, 'f', -1, 64). An explicit Format is a fmt verb.
 func (s *St) formatFloat(v float64) string {
-	format := s.Format
-	if format == "" {
-		format = "%g"
+	if s.Format == "" {
+		return strconv.FormatFloat(v, 'f', -1, 64)
 	}
-	return fmt.Sprintf(format, v)
+	return fmt.Sprintf(s.Format, v)
 }
 
 // formatSampleMoment renders a sample variance or sample standard deviation.

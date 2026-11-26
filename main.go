@@ -16,7 +16,7 @@ import (
 
 type options struct {
 	Version  func() `short:"v" long:"version" description:"show version"`
-	Format   string `short:"f" long:"format" default:"%g" description:"output format"`
+	Format   string `short:"f" long:"format" description:"fmt format for float columns (default: fixed-point decimal)"`
 	Count    bool   `short:"N" long:"count" description:"sample size"`
 	Min      bool   `long:"min" description:"minimum"`
 	Max      bool   `long:"max" description:"maximum"`
@@ -75,8 +75,12 @@ func cli(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 }
 
 // validateFloatFormat reports whether format is a fmt verb string that
-// consumes exactly one float64. fmt itself embeds bad verbs in the result.
+// consumes exactly one float64. An empty format selects the historical
+// fixed-point default and is not passed to fmt.
 func validateFloatFormat(format string) error {
+	if format == "" {
+		return nil
+	}
 	if strings.Contains(fmt.Sprintf(format, 0.0), "%!") {
 		return fmt.Errorf("invalid format %q", format)
 	}

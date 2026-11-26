@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"io"
 	"math"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -229,6 +230,46 @@ func TestFewSamples(t *testing.T) {
 			checkDiff(t, tt.header, header)
 			checkDiff(t, tt.row, row)
 		})
+	}
+}
+
+func TestDefaultFloatFormat(t *testing.T) {
+	for _, v := range []float64{1234567, 50005000, 1e-7, 0.000000123} {
+		s := St{Sum: true}
+		s.Process(v)
+		var row []string
+		s.Formatter = func(_ io.Writer, _ []string, data [][]string) {
+			row = append([]string(nil), data[0]...)
+		}
+		s.Output(io.Discard)
+		want := strconv.FormatFloat(v, 'f', -1, 64)
+		checkDiff(t, []string{want}, row)
+		if strings.Contains(row[0], "e") || strings.Contains(row[0], "E") {
+			t.Fatalf("default format of %v = %q, want fixed-point", v, row[0])
+		}
+	}
+}
+
+func TestExplicitGFormat(t *testing.T) {
+	for _, tc := range []struct {
+		in, want string
+	}{
+		{"1234567", "1.234567e+06"},
+		{"50005000", "5.0005e+07"},
+		{"0.0000001", "1e-07"},
+	} {
+		v, err := strconv.ParseFloat(tc.in, 64)
+		if err != nil {
+			t.Fatal(err)
+		}
+		s := St{Format: "%g", Max: true}
+		s.Process(v)
+		var row []string
+		s.Formatter = func(_ io.Writer, _ []string, data [][]string) {
+			row = append([]string(nil), data[0]...)
+		}
+		s.Output(io.Discard)
+		checkDiff(t, []string{tc.want}, row)
 	}
 }
 
