@@ -15,16 +15,17 @@ import (
 )
 
 type options struct {
-	Version  func() `short:"v" long:"version" description:"show version"`
-	Format   string `short:"f" long:"format" description:"fmt format for float columns (default: fixed-point decimal)"`
-	Count    bool   `short:"N" long:"count" description:"sample size"`
-	Min      bool   `long:"min" description:"minimum"`
-	Max      bool   `long:"max" description:"maximum"`
-	Sum      bool   `long:"sum" description:"sum of elements of the sample"`
-	Mean     bool   `short:"m" long:"mean" description:"mean"`
-	Stddev   bool   `long:"sd" description:"standard deviation"`
-	Vatiance bool   `long:"variance" description:"variance"`
-	Markdown bool   `long:"markdown" description:"markdown table format"`
+	Version    func() `short:"v" long:"version" description:"show version"`
+	Format     string `short:"f" long:"format" description:"fmt format for float columns (default: fixed-point decimal)"`
+	Count      bool   `short:"N" long:"count" description:"sample size"`
+	Min        bool   `long:"min" description:"minimum"`
+	Max        bool   `long:"max" description:"maximum"`
+	Sum        bool   `long:"sum" description:"sum of elements of the sample"`
+	Mean       bool   `short:"m" long:"mean" description:"mean"`
+	Stddev     bool   `long:"sd" description:"standard deviation"`
+	Vatiance   bool   `long:"variance" description:"variance"`
+	Population bool   `long:"population" description:"population variance and standard deviation"`
+	Markdown   bool   `long:"markdown" description:"markdown table format"`
 }
 
 func main() {
@@ -64,13 +65,14 @@ func cli(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 		Formatter: f,
 		Format:    opts.Format,
 
-		Count:    opts.Count,
-		Min:      opts.Min,
-		Max:      opts.Max,
-		Sum:      opts.Sum,
-		Mean:     opts.Mean,
-		Stddev:   opts.Stddev,
-		Variance: opts.Vatiance,
+		Count:      opts.Count,
+		Min:        opts.Min,
+		Max:        opts.Max,
+		Sum:        opts.Sum,
+		Mean:       opts.Mean,
+		Stddev:     opts.Stddev,
+		Variance:   opts.Vatiance,
+		Population: opts.Population,
 	}
 
 	return run(&s, rest, stdin, stdout, stderr)

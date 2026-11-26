@@ -523,6 +523,40 @@ func TestRunFiles(t *testing.T) {
 	}
 }
 
+func TestCLIPopulation(t *testing.T) {
+	restore := captureOS(t)
+	defer restore()
+	var stdout, stderr bytes.Buffer
+	code := cli([]string{"--population", "-m", "--sd", "--variance"}, strings.NewReader("1\n3\n"), &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("cli() = %d, stderr = %s", code, stderr.String())
+	}
+	var header, row []string
+	probe := &st.St{
+		Population: true,
+		Formatter: func(_ io.Writer, h []string, data [][]string) {
+			header = append([]string(nil), h...)
+			row = append([]string(nil), data[0]...)
+		},
+		Mean:     true,
+		Stddev:   true,
+		Variance: true,
+	}
+	code = run(probe, nil, strings.NewReader("1\n3\n"), io.Discard, io.Discard)
+	if code != 0 {
+		t.Fatal(code)
+	}
+	if diff := cmp.Diff([]string{"MEAN", "STDDEV", "VARIANCE"}, header); diff != "" {
+		t.Errorf("header mismatch (-want +got):\n%s", diff)
+	}
+	if diff := cmp.Diff([]string{"2", "1", "1"}, row); diff != "" {
+		t.Errorf("population stddev mismatch (-want +got):\n%s\ncli stdout:\n%s", diff, stdout.String())
+	}
+	if strings.Contains(stdout.String(), "1.414") {
+		t.Fatalf("cli stdout used the sample stddev:\n%s", stdout.String())
+	}
+}
+
 func TestCLIFileArgs(t *testing.T) {
 	restore := captureOS(t)
 	defer restore()
