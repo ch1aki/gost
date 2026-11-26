@@ -143,7 +143,6 @@ func PlainTextFormatter(writer io.Writer, header []string, data [][]string) {
 	table.SetBorder(false)
 	table.SetTablePadding("\t")
 	table.SetNoWhiteSpace(true)
-	table.SetBorder(false)
 	table.AppendBulk(data)
 	table.Render()
 }

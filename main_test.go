@@ -14,6 +14,25 @@ import (
 	"github.com/google/go-cmp/cmp"
 )
 
+func TestResolveVersion(t *testing.T) {
+	tests := []struct {
+		link, module, want string
+	}{
+		{link: "dev", module: "(devel)", want: "dev"},
+		{link: "dev", module: "", want: "dev"},
+		{link: "", module: "(devel)", want: "dev"},
+		{link: "dev", module: "v0.1.1", want: "v0.1.1"},
+		{link: "", module: "v0.1.1", want: "v0.1.1"},
+		{link: "v1.2.3", module: "v0.1.1", want: "v1.2.3"},
+	}
+	for _, tt := range tests {
+		got := resolveVersion(tt.link, tt.module)
+		if got != tt.want {
+			t.Errorf("resolveVersion(%q, %q) = %q, want %q", tt.link, tt.module, got, tt.want)
+		}
+	}
+}
+
 func TestHelpExitsZero(t *testing.T) {
 	for _, arg := range []string{"-h", "--help"} {
 		t.Run(arg, func(t *testing.T) {

@@ -7,12 +7,40 @@ import (
 	"io"
 	"math"
 	"os"
+	"runtime/debug"
 	"strconv"
 	"strings"
 
 	st "github.com/ch1aki/gost/lib"
 	"github.com/jessevdk/go-flags"
 )
+
+// version is overridden by goreleaser: -X main.version={{ .Version }}.
+// The placeholder "dev" means unset, and currentVersion then uses the
+// module version recorded by go install.
+var version = "dev"
+
+func currentVersion() string {
+	return resolveVersion(version, moduleVersion())
+}
+
+func moduleVersion() string {
+	info, ok := debug.ReadBuildInfo()
+	if !ok {
+		return ""
+	}
+	return info.Main.Version
+}
+
+func resolveVersion(linkVersion, moduleVersion string) string {
+	if linkVersion != "" && linkVersion != "dev" {
+		return linkVersion
+	}
+	if moduleVersion != "" && moduleVersion != "(devel)" {
+		return moduleVersion
+	}
+	return "dev"
+}
 
 type options struct {
 	Version    func() `short:"v" long:"version" description:"show version"`
@@ -23,7 +51,7 @@ type options struct {
 	Sum        bool   `long:"sum" description:"sum of elements of the sample"`
 	Mean       bool   `short:"m" long:"mean" description:"mean"`
 	Stddev     bool   `long:"sd" description:"standard deviation"`
-	Vatiance   bool   `long:"variance" description:"variance"`
+	Variance   bool   `long:"variance" description:"variance"`
 	Population bool   `long:"population" description:"population variance and standard deviation"`
 	Markdown   bool   `long:"markdown" description:"markdown table format"`
 }
@@ -37,7 +65,7 @@ func main() {
 func cli(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	var opts options
 	opts.Version = func() {
-		fmt.Fprintln(stdout, "0.1.1")
+		fmt.Fprintln(stdout, currentVersion())
 		os.Exit(0)
 	}
 	parser := flags.NewParser(&opts, flags.Default)
@@ -71,7 +99,7 @@ func cli(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 		Sum:        opts.Sum,
 		Mean:       opts.Mean,
 		Stddev:     opts.Stddev,
-		Variance:   opts.Vatiance,
+		Variance:   opts.Variance,
 		Population: opts.Population,
 	}
 
