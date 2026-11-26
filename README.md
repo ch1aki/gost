@@ -19,11 +19,11 @@ go install github.com/ch1aki/gost@latest
 
 ```
 Usage:
-  gost [OPTIONS]
+  gost [OPTIONS] [FILE...]
 
 Application Options:
   -v, --version     show version
-  -f, --format=     output format (default: %g)
+  -f, --format=     fmt format for float columns (default: fixed-point decimal)
   -N, --count       sample size
       --min         minimum
       --max         maximum
@@ -43,16 +43,16 @@ arguments or an argument is `-`. Several files are one sample. Each line may
 hold several whitespace-separated numbers. Blank lines are skipped.
 
 A bad token, `NaN`, or `Inf` is an error on stderr, `<file>:<line>: <reason>`,
-and gost exits 1 without a table. A line longer than 64KiB is `line too long`.
-Standard input is named `stdin`. If nothing valid was read, gost exits 1 with
-`<name>: no values`.
+and gost exits 1 without a table. A line may contain many numbers. Only a line
+longer than 8MiB is `<file>:<line>: line too long`. Standard input is named
+`stdin`. If nothing valid was read, gost exits 1 with `<name>: no values`.
 
 With no column flags, gost prints N, MIN, MAX, SUM, MEAN, and STDDEV.
 `--variance` adds VARIANCE. STDDEV and VARIANCE are the sample statistics
 (divide by n−1). For one value those two cells are `NA`, because the sample
 statistic is undefined. `--population` divides by n instead; one value is then
-0. N is always an integer. `-f` is a fmt verb for the other columns, default
-`%g`.
+0. N is always an integer. Floats are fixed-point decimals unless `-f` is set.
+`-f` is then a fmt verb, such as `%.2f` or `%g`.
 
 ```
 $ seq 1 100 | gost
