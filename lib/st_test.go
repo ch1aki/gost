@@ -273,6 +273,28 @@ func TestExplicitGFormat(t *testing.T) {
 	}
 }
 
+func TestPopulationMoments(t *testing.T) {
+	s := St{Population: true, Count: true, Mean: true, Stddev: true, Variance: true}
+	s.Process(1)
+	s.Process(3)
+	var row []string
+	s.Formatter = func(_ io.Writer, _ []string, data [][]string) {
+		row = append([]string(nil), data[0]...)
+	}
+	s.Output(io.Discard)
+	// Population variance of {1, 3} is 1, so stddev is 1. Sample would be 2 and sqrt(2).
+	checkDiff(t, []string{"2", "2", "1", "1"}, row)
+
+	one := St{Population: true, Stddev: true, Variance: true}
+	one.Process(5)
+	var oneRow []string
+	one.Formatter = func(_ io.Writer, _ []string, data [][]string) {
+		oneRow = append([]string(nil), data[0]...)
+	}
+	one.Output(io.Discard)
+	checkDiff(t, []string{"0", "0"}, oneRow)
+}
+
 func TestFormatVerb(t *testing.T) {
 	s := St{
 		Format:   "%.2f",

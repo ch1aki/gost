@@ -523,6 +523,20 @@ func TestRunFiles(t *testing.T) {
 	}
 }
 
+func TestCLIPopulation(t *testing.T) {
+	restore := captureOS(t)
+	defer restore()
+	var stdout, stderr bytes.Buffer
+	code := cli([]string{"--population", "-m", "--sd", "--variance"}, strings.NewReader("1\n3\n"), &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("cli() = %d, stderr = %s", code, stderr.String())
+	}
+	out := stdout.String()
+	if strings.Contains(out, "1.414") || !strings.Contains(out, "1") {
+		t.Fatalf("stdout = %q, want population stddev 1", out)
+	}
+}
+
 func TestCLIFileArgs(t *testing.T) {
 	restore := captureOS(t)
 	defer restore()

@@ -13,14 +13,15 @@ type St struct {
 	Formatter func(writer io.Writer, header []string, data [][]string)
 	// Format is an explicit fmt verb for float columns. Empty keeps the
 	// historical fixed-point formatting. N is always an integer.
-	Format   string
-	Count    bool
-	Min      bool
-	Max      bool
-	Sum      bool
-	Mean     bool
-	Stddev   bool
-	Variance bool
+	Format     string
+	Count      bool
+	Min        bool
+	Max        bool
+	Sum        bool
+	Mean       bool
+	Stddev     bool
+	Variance   bool
+	Population bool
 
 	count    int64
 	min      float64
@@ -54,8 +55,17 @@ func (s *St) Process(input float64) {
 	s.mean += (input - s.mean) / float64(s.count)
 
 	s.sumsq += (input - s.mean) * (input - oldM)
-	s.variance = s.sumsq / float64(s.count-1)
-
+	denom := float64(s.count - 1)
+	if s.Population {
+		denom = float64(s.count)
+	}
+	if denom == 0 {
+		// Sample variance is undefined for n < 2. Output prints NA.
+		s.variance = math.NaN()
+		s.stddev = math.NaN()
+		return
+	}
+	s.variance = s.sumsq / denom
 	s.stddev = math.Sqrt(s.variance)
 }
 
@@ -109,7 +119,7 @@ func (s *St) formatFloat(v float64) string {
 // formatSampleMoment renders a sample variance or sample standard deviation.
 // Both are undefined for n < 2, so those cells are NA rather than 0 or NaN.
 func (s *St) formatSampleMoment(v float64) string {
-	if s.count < 2 {
+	if !s.Population && s.count < 2 {
 		return "NA"
 	}
 	return s.formatFloat(v)
