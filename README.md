@@ -19,7 +19,7 @@ go install github.com/ch1aki/gost@latest
 
 ```
 Usage:
-  gost [OPTIONS] [FILES...]
+  gost [OPTIONS]
 
 Application Options:
   -v, --version     show version
