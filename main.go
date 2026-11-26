@@ -16,7 +16,7 @@ import (
 
 type options struct {
 	Version  func() `short:"v" long:"version" description:"show version"`
-	Format   string `short:"f" long:"format" default:"%g" description:"outpuut format"`
+	Format   string `short:"f" long:"format" description:"fmt format for float columns (default: fixed-point decimal)"`
 	Count    bool   `short:"N" long:"count" description:"sample size"`
 	Min      bool   `long:"min" description:"minimum"`
 	Max      bool   `long:"max" description:"maximum"`
@@ -28,15 +28,29 @@ type options struct {
 }
 
 func main() {
-	var opts options
+	if code := cli(os.Args[1:], os.Stdin, os.Stdout, os.Stderr); code != 0 {
+		os.Exit(code)
+	}
+}
 
+func cli(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
+	var opts options
 	opts.Version = func() {
-		fmt.Println("0.1.1")
+		fmt.Fprintln(stdout, "0.1.1")
 		os.Exit(0)
 	}
-	_, err := flags.Parse(&opts)
-	if err != nil {
-		os.Exit(1)
+	parser := flags.NewParser(&opts, flags.Default)
+	parser.Name = "gost"
+	if _, err := parser.ParseArgs(args); err != nil {
+		var fe *flags.Error
+		if errors.As(err, &fe) && fe.Type == flags.ErrHelp {
+			return 0
+		}
+		return 1
+	}
+	if err := validateFloatFormat(opts.Format); err != nil {
+		fmt.Fprintln(stderr, err.Error())
+		return 1
 	}
 
 	f := st.PlainTextFormatter
@@ -46,6 +60,7 @@ func main() {
 
 	s := st.St{
 		Formatter: f,
+		Format:    opts.Format,
 
 		Count:    opts.Count,
 		Min:      opts.Min,
@@ -56,9 +71,20 @@ func main() {
 		Variance: opts.Vatiance,
 	}
 
-	if code := run(&s, os.Stdin, os.Stdout, os.Stderr); code != 0 {
-		os.Exit(code)
+	return run(&s, stdin, stdout, stderr)
+}
+
+// validateFloatFormat reports whether format is a fmt verb string that
+// consumes exactly one float64. An empty format selects the historical
+// fixed-point default and is not passed to fmt.
+func validateFloatFormat(format string) error {
+	if format == "" {
+		return nil
 	}
+	if strings.Contains(fmt.Sprintf(format, 0.0), "%!") {
+		return fmt.Errorf("invalid format %q", format)
+	}
+	return nil
 }
 
 // run reads numbers from r into s and, on success, writes the table to stdout.

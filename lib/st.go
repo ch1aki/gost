@@ -1,6 +1,7 @@
 package st
 
 import (
+	"fmt"
 	"io"
 	"math"
 	"strconv"
@@ -10,13 +11,16 @@ import (
 
 type St struct {
 	Formatter func(writer io.Writer, header []string, data [][]string)
-	Count     bool
-	Min       bool
-	Max       bool
-	Sum       bool
-	Mean      bool
-	Stddev    bool
-	Variance  bool
+	// Format is an explicit fmt verb for float columns. Empty keeps the
+	// historical fixed-point formatting. N is always an integer.
+	Format   string
+	Count    bool
+	Min      bool
+	Max      bool
+	Sum      bool
+	Mean     bool
+	Stddev   bool
+	Variance bool
 
 	count    int64
 	min      float64
@@ -67,39 +71,48 @@ func (s *St) Output(writer io.Writer) {
 	}
 	if defaults || s.Min {
 		header = append(header, "MIN")
-		data = append(data, strconv.FormatFloat(s.min, 'f', -1, 64))
+		data = append(data, s.formatFloat(s.min))
 	}
 	if defaults || s.Max {
 		header = append(header, "MAX")
-		data = append(data, strconv.FormatFloat(s.max, 'f', -1, 64))
+		data = append(data, s.formatFloat(s.max))
 	}
 	if defaults || s.Sum {
 		header = append(header, "SUM")
-		data = append(data, strconv.FormatFloat(s.sum, 'f', -1, 64))
+		data = append(data, s.formatFloat(s.sum))
 	}
 	if defaults || s.Mean {
 		header = append(header, "MEAN")
-		data = append(data, strconv.FormatFloat(s.mean, 'f', -1, 64))
+		data = append(data, s.formatFloat(s.mean))
 	}
 	if defaults || s.Stddev {
 		header = append(header, "STDDEV")
-		data = append(data, formatSampleMoment(s.stddev, s.count))
+		data = append(data, s.formatSampleMoment(s.stddev))
 	}
 	if s.Variance {
 		header = append(header, "VARIANCE")
-		data = append(data, formatSampleMoment(s.variance, s.count))
+		data = append(data, s.formatSampleMoment(s.variance))
 	}
 
 	s.Formatter(writer, header, [][]string{data})
 }
 
+// formatFloat prints v. With no Format, this matches
+// strconv.FormatFloat(v, 'f', -1, 64). An explicit Format is a fmt verb.
+func (s *St) formatFloat(v float64) string {
+	if s.Format == "" {
+		return strconv.FormatFloat(v, 'f', -1, 64)
+	}
+	return fmt.Sprintf(s.Format, v)
+}
+
 // formatSampleMoment renders a sample variance or sample standard deviation.
 // Both are undefined for n < 2, so those cells are NA rather than 0 or NaN.
-func formatSampleMoment(v float64, n int64) string {
-	if n < 2 {
+func (s *St) formatSampleMoment(v float64) string {
+	if s.count < 2 {
 		return "NA"
 	}
-	return strconv.FormatFloat(v, 'f', -1, 64)
+	return s.formatFloat(v)
 }
 
 func PlainTextFormatter(writer io.Writer, header []string, data [][]string) {

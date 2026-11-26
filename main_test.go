@@ -4,13 +4,123 @@ import (
 	"bufio"
 	"bytes"
 	"errors"
+	"fmt"
 	"io"
+	"os"
 	"strings"
 	"testing"
 
 	st "github.com/ch1aki/gost/lib"
 	"github.com/google/go-cmp/cmp"
 )
+
+func TestHelpExitsZero(t *testing.T) {
+	for _, arg := range []string{"-h", "--help"} {
+		t.Run(arg, func(t *testing.T) {
+			help := captureOS(t)
+			code := cli([]string{arg}, strings.NewReader(""), io.Discard, io.Discard)
+			text := help()
+			if code != 0 {
+				t.Fatalf("cli(%s) = %d, want 0\n%s", arg, code, text)
+			}
+			if !strings.Contains(text, "fixed-point decimal") || strings.Contains(text, "outpuut") || strings.Contains(text, "default: %g") {
+				t.Fatalf("help text = %q", text)
+			}
+		})
+	}
+}
+
+func TestInvalidFormatExits(t *testing.T) {
+	for _, format := range []string{"%d", "%s", "hello"} {
+		t.Run(format, func(t *testing.T) {
+			restore := captureOS(t)
+			defer restore()
+			var stdout, stderr bytes.Buffer
+			code := cli([]string{"-f", format}, strings.NewReader("1\n2\n"), &stdout, &stderr)
+			if code != 1 {
+				t.Fatalf("cli() = %d, want 1", code)
+			}
+			if stdout.Len() != 0 {
+				t.Fatalf("stdout = %q, want empty", stdout.String())
+			}
+			if diff := cmp.Diff(fmt.Sprintf("invalid format %q\n", format), stderr.String()); diff != "" {
+				t.Errorf("stderr mismatch (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+func TestDefaultFormatFixedPoint(t *testing.T) {
+	restore := captureOS(t)
+	defer restore()
+	var b strings.Builder
+	for i := 1; i <= 10000; i++ {
+		fmt.Fprintf(&b, "%d\n", i)
+	}
+	var stdout, stderr bytes.Buffer
+	code := cli([]string{"--sum", "--max"}, strings.NewReader(b.String()), &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("cli() = %d, stderr = %s", code, stderr.String())
+	}
+	out := stdout.String()
+	if !strings.Contains(out, "50005000") || !strings.Contains(out, "10000") {
+		t.Fatalf("stdout = %q, want fixed-point sum and max", out)
+	}
+	if strings.Contains(out, "e+") || strings.Contains(out, "e-") {
+		t.Fatalf("stdout = %q, default format used exponent", out)
+	}
+
+	stdout.Reset()
+	stderr.Reset()
+	code = cli([]string{"--max"}, strings.NewReader("0.0000001\n"), &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("cli() = %d, stderr = %s", code, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "0.0000001") || strings.Contains(stdout.String(), "e-") {
+		t.Fatalf("stdout = %q, want fixed-point small value", stdout.String())
+	}
+}
+
+func TestFormatFlag(t *testing.T) {
+	restore := captureOS(t)
+	defer restore()
+	var stdout, stderr bytes.Buffer
+	code := cli([]string{"-f", "%.2f", "-N", "-m"}, strings.NewReader("1\n2\n"), &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("cli() = %d, stderr = %s", code, stderr.String())
+	}
+	out := stdout.String()
+	if !strings.Contains(out, "1.50") {
+		t.Fatalf("stdout = %q, want mean 1.50", out)
+	}
+	if strings.Contains(out, "2.00") {
+		t.Fatalf("stdout = %q, N must stay an integer", out)
+	}
+}
+
+// captureOS redirects process stdout and stderr, where go-flags writes help
+// and parse errors, and returns a function that restores them and yields stdout.
+func captureOS(t *testing.T) func() string {
+	t.Helper()
+	oldOut, oldErr := os.Stdout, os.Stderr
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	re, we, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	os.Stdout, os.Stderr = w, we
+	return func() string {
+		w.Close()
+		we.Close()
+		os.Stdout, os.Stderr = oldOut, oldErr
+		out, _ := io.ReadAll(r)
+		io.Copy(io.Discard, re)
+		return string(out)
+	}
+}
 
 func TestReadInput(t *testing.T) {
 	long := strings.Repeat("1", bufio.MaxScanTokenSize) + "\n"
