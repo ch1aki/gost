@@ -45,7 +45,9 @@ hold several whitespace-separated numbers. Blank lines are skipped.
 A bad token, `NaN`, or `Inf` is an error on stderr, `<file>:<line>: <reason>`,
 and gost exits 1 without a table. A line may contain many numbers. Only a line
 longer than 8MiB is `<file>:<line>: line too long`. Standard input is named
-`stdin`. If nothing valid was read, gost exits 1 with `<name>: no values`.
+`stdin`. A missing file is `<name>: no such file or directory`. A directory is
+`<name>: is a directory`. If nothing valid was read, gost exits 1 with
+`<name>: no values`, listing every input when there are several.
 
 With no column flags, gost prints N, MIN, MAX, SUM, MEAN, and STDDEV.
 `--variance` adds VARIANCE. STDDEV and VARIANCE are the sample statistics
