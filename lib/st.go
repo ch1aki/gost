@@ -55,18 +55,21 @@ func (s *St) Process(input float64) {
 	s.mean += (input - s.mean) / float64(s.count)
 
 	s.sumsq += (input - s.mean) * (input - oldM)
+	s.variance, s.stddev = s.moments()
+}
+
+// moments derives variance and standard deviation from the running sum of
+// squares. The divisor is chosen here, so Population can change after Process.
+func (s *St) moments() (variance, stddev float64) {
 	denom := float64(s.count - 1)
 	if s.Population {
 		denom = float64(s.count)
 	}
 	if denom == 0 {
-		// Sample variance is undefined for n < 2. Output prints NA.
-		s.variance = math.NaN()
-		s.stddev = math.NaN()
-		return
+		return math.NaN(), math.NaN()
 	}
-	s.variance = s.sumsq / denom
-	s.stddev = math.Sqrt(s.variance)
+	variance = s.sumsq / denom
+	return variance, math.Sqrt(variance)
 }
 
 func (s *St) Output(writer io.Writer) {
@@ -95,13 +98,14 @@ func (s *St) Output(writer io.Writer) {
 		header = append(header, "MEAN")
 		data = append(data, s.formatFloat(s.mean))
 	}
+	variance, stddev := s.moments()
 	if defaults || s.Stddev {
 		header = append(header, "STDDEV")
-		data = append(data, s.formatSampleMoment(s.stddev))
+		data = append(data, s.formatSampleMoment(stddev))
 	}
 	if s.Variance {
 		header = append(header, "VARIANCE")
-		data = append(data, s.formatSampleMoment(s.variance))
+		data = append(data, s.formatSampleMoment(variance))
 	}
 
 	s.Formatter(writer, header, [][]string{data})
@@ -116,8 +120,9 @@ func (s *St) formatFloat(v float64) string {
 	return fmt.Sprintf(s.Format, v)
 }
 
-// formatSampleMoment renders a sample variance or sample standard deviation.
-// Both are undefined for n < 2, so those cells are NA rather than 0 or NaN.
+// formatSampleMoment renders variance or standard deviation.
+// Sample mode is undefined for n < 2, so those cells are NA.
+// Population mode divides by n, so a single value is 0 rather than NA.
 func (s *St) formatSampleMoment(v float64) string {
 	if !s.Population && s.count < 2 {
 		return "NA"

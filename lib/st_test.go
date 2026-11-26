@@ -295,6 +295,19 @@ func TestPopulationMoments(t *testing.T) {
 	checkDiff(t, []string{"0", "0"}, oneRow)
 }
 
+func TestPopulationChosenAtOutput(t *testing.T) {
+	s := St{Count: true, Stddev: true, Variance: true}
+	s.Process(1)
+	s.Process(3)
+	s.Population = true
+	var row []string
+	s.Formatter = func(_ io.Writer, _ []string, data [][]string) {
+		row = append([]string(nil), data[0]...)
+	}
+	s.Output(io.Discard)
+	checkDiff(t, []string{"2", "1", "1"}, row)
+}
+
 func TestFormatVerb(t *testing.T) {
 	s := St{
 		Format:   "%.2f",
