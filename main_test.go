@@ -450,14 +450,24 @@ func TestRunFiles(t *testing.T) {
 	}
 
 	var stdout, stderr bytes.Buffer
-	s := &st.St{Formatter: st.PlainTextFormatter, Count: true, Sum: true}
+	var header, row []string
+	s := &st.St{
+		Count: true,
+		Sum:   true,
+		Formatter: func(_ io.Writer, h []string, data [][]string) {
+			header = append([]string(nil), h...)
+			row = append([]string(nil), data[0]...)
+		},
+	}
 	code := run(s, []string{a, "-", b}, strings.NewReader("5\n"), &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("run() = %d, stderr = %s", code, stderr.String())
 	}
-	out := stdout.String()
-	if !strings.Contains(out, "5") || !strings.Contains(out, "15") {
-		t.Fatalf("stdout = %q, want N=5 sum=15", out)
+	if diff := cmp.Diff([]string{"N", "SUM"}, header); diff != "" {
+		t.Errorf("header mismatch (-want +got):\n%s", diff)
+	}
+	if diff := cmp.Diff([]string{"5", "15"}, row); diff != "" {
+		t.Errorf("N and SUM mismatch (-want +got):\n%s", diff)
 	}
 
 	stdout.Reset()
@@ -485,6 +495,30 @@ func TestRunFiles(t *testing.T) {
 		t.Fatalf("empty file code=%d stdout=%q", code, stdout.String())
 	}
 	if diff := cmp.Diff(empty+": no values\n", stderr.String()); diff != "" {
+		t.Errorf("stderr mismatch (-want +got):\n%s", diff)
+	}
+
+	empty2 := filepath.Join(dir, "empty2.txt")
+	if err := os.WriteFile(empty2, []byte("\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	stdout.Reset()
+	stderr.Reset()
+	code = run(&st.St{Formatter: st.PlainTextFormatter}, []string{empty, empty2}, strings.NewReader(""), &stdout, &stderr)
+	if code != 1 || stdout.Len() != 0 {
+		t.Fatalf("empty files code=%d stdout=%q", code, stdout.String())
+	}
+	if diff := cmp.Diff(empty+", "+empty2+": no values\n", stderr.String()); diff != "" {
+		t.Errorf("stderr mismatch (-want +got):\n%s", diff)
+	}
+
+	stdout.Reset()
+	stderr.Reset()
+	code = run(&st.St{Formatter: st.PlainTextFormatter}, []string{dir}, strings.NewReader(""), &stdout, &stderr)
+	if code != 1 || stdout.Len() != 0 {
+		t.Fatalf("directory code=%d stdout=%q", code, stdout.String())
+	}
+	if diff := cmp.Diff(dir+": is a directory\n", stderr.String()); diff != "" {
 		t.Errorf("stderr mismatch (-want +got):\n%s", diff)
 	}
 }

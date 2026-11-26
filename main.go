@@ -114,18 +114,23 @@ func run(s *st.St, files []string, stdin io.Reader, stdout, stderr io.Writer) in
 		}
 	}
 	if n == 0 {
-		label := "stdin"
-		if len(files) == 1 && files[0] != "-" {
-			label = files[0]
-		} else if len(files) != 1 {
-			fmt.Fprintln(stderr, "no values")
-			return 1
-		}
-		fmt.Fprintf(stderr, "%s: no values\n", label)
+		fmt.Fprintln(stderr, noValuesMessage(files))
 		return 1
 	}
 	s.Output(stdout)
 	return 0
+}
+
+func noValuesMessage(files []string) string {
+	names := make([]string, len(files))
+	for i, name := range files {
+		if name == "-" {
+			names[i] = "stdin"
+		} else {
+			names[i] = name
+		}
+	}
+	return strings.Join(names, ", ") + ": no values"
 }
 
 func openInput(name string, stdin io.Reader) (io.ReadCloser, string, error) {
@@ -139,6 +144,15 @@ func openInput(name string, stdin io.Reader) (io.ReadCloser, string, error) {
 			return nil, "", fmt.Errorf("%s: %s", name, pe.Err)
 		}
 		return nil, "", err
+	}
+	info, err := f.Stat()
+	if err != nil {
+		f.Close()
+		return nil, "", fmt.Errorf("%s: %s", name, err)
+	}
+	if info.IsDir() {
+		f.Close()
+		return nil, "", fmt.Errorf("%s: is a directory", name)
 	}
 	return f, name, nil
 }
@@ -182,10 +196,15 @@ func readInput(name string, r io.Reader, process func(float64)) error {
 	}
 	if err := scanner.Err(); err != nil {
 		line++
-		if errors.Is(err, bufio.ErrTooLong) {
-			return &inputError{name: name, line: line, reason: "line too long"}
+		reason := err.Error()
+		var pe *os.PathError
+		if errors.As(err, &pe) {
+			reason = pe.Err.Error()
 		}
-		return &inputError{name: name, line: line, reason: err.Error()}
+		if errors.Is(err, bufio.ErrTooLong) {
+			reason = "line too long"
+		}
+		return &inputError{name: name, line: line, reason: reason}
 	}
 	return nil
 }
