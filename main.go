@@ -7,6 +7,7 @@ import (
 	"io"
 	"math"
 	"os"
+	"runtime/debug"
 	"strconv"
 	"strings"
 
@@ -14,8 +15,32 @@ import (
 	"github.com/jessevdk/go-flags"
 )
 
-// version is overridden by goreleaser: -X main.version={{ .Version }}
+// version is overridden by goreleaser: -X main.version={{ .Version }}.
+// The placeholder "dev" means unset, and currentVersion then uses the
+// module version recorded by go install.
 var version = "dev"
+
+func currentVersion() string {
+	return resolveVersion(version, moduleVersion())
+}
+
+func moduleVersion() string {
+	info, ok := debug.ReadBuildInfo()
+	if !ok {
+		return ""
+	}
+	return info.Main.Version
+}
+
+func resolveVersion(linkVersion, moduleVersion string) string {
+	if linkVersion != "" && linkVersion != "dev" {
+		return linkVersion
+	}
+	if moduleVersion != "" && moduleVersion != "(devel)" {
+		return moduleVersion
+	}
+	return "dev"
+}
 
 type options struct {
 	Version    func() `short:"v" long:"version" description:"show version"`
@@ -40,7 +65,7 @@ func main() {
 func cli(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	var opts options
 	opts.Version = func() {
-		fmt.Fprintln(stdout, version)
+		fmt.Fprintln(stdout, currentVersion())
 		os.Exit(0)
 	}
 	parser := flags.NewParser(&opts, flags.Default)

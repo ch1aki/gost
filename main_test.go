@@ -14,16 +14,22 @@ import (
 	"github.com/google/go-cmp/cmp"
 )
 
-func TestVersion(t *testing.T) {
-	if version != "dev" {
-		t.Fatalf("version = %q, want dev unless ldflags set it", version)
+func TestResolveVersion(t *testing.T) {
+	tests := []struct {
+		link, module, want string
+	}{
+		{link: "dev", module: "(devel)", want: "dev"},
+		{link: "dev", module: "", want: "dev"},
+		{link: "", module: "(devel)", want: "dev"},
+		{link: "dev", module: "v0.1.1", want: "v0.1.1"},
+		{link: "", module: "v0.1.1", want: "v0.1.1"},
+		{link: "v1.2.3", module: "v0.1.1", want: "v1.2.3"},
 	}
-	b, err := os.ReadFile(".goreleaser.yaml")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(string(b), "-X main.version={{ .Version }}") {
-		t.Fatal("goreleaser ldflags do not set main.version")
+	for _, tt := range tests {
+		got := resolveVersion(tt.link, tt.module)
+		if got != tt.want {
+			t.Errorf("resolveVersion(%q, %q) = %q, want %q", tt.link, tt.module, got, tt.want)
+		}
 	}
 }
 
