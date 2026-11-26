@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bufio"
 	"bytes"
 	"errors"
 	"fmt"
@@ -26,6 +25,9 @@ func TestHelpExitsZero(t *testing.T) {
 			}
 			if !strings.Contains(text, "fixed-point decimal") || strings.Contains(text, "outpuut") || strings.Contains(text, "default: %g") {
 				t.Fatalf("help text = %q", text)
+			}
+			if !strings.Contains(text, "[OPTIONS] [FILE...]") {
+				t.Fatalf("help text = %q, want file arguments in Usage", text)
 			}
 		})
 	}
@@ -124,7 +126,7 @@ func captureOS(t *testing.T) func() string {
 }
 
 func TestReadInput(t *testing.T) {
-	long := strings.Repeat("1", bufio.MaxScanTokenSize) + "\n"
+	long := strings.Repeat("1", maxLineSize+1) + "\n"
 
 	tests := []struct {
 		name    string
@@ -379,6 +381,46 @@ func TestRunOneValuePlainText(t *testing.T) {
 	}
 }
 
+func TestReadInputLongLineOfNumbers(t *testing.T) {
+	var b strings.Builder
+	const n = 20000
+	for i := 1; i <= n; i++ {
+		if i > 1 {
+			b.WriteByte(' ')
+		}
+		fmt.Fprintf(&b, "%d", i)
+	}
+	b.WriteString(" x\n")
+	var got []float64
+	err := readInput("nums.txt", strings.NewReader(b.String()), func(f float64) {
+		got = append(got, f)
+	})
+	var ie *inputError
+	if !errors.As(err, &ie) {
+		t.Fatalf("readInput() error = %v", err)
+	}
+	if diff := cmp.Diff("nums.txt:1: invalid number \"x\"", err.Error()); diff != "" {
+		t.Errorf("error mismatch (-want +got):\n%s", diff)
+	}
+	if len(got) != n || got[0] != 1 || got[n-1] != n {
+		t.Fatalf("processed %d values, first=%v last=%v", len(got), first(got), last(got))
+	}
+}
+
+func first(v []float64) float64 {
+	if len(v) == 0 {
+		return 0
+	}
+	return v[0]
+}
+
+func last(v []float64) float64 {
+	if len(v) == 0 {
+		return 0
+	}
+	return v[len(v)-1]
+}
+
 func TestReadInputWhitespaceAndName(t *testing.T) {
 	var got []float64
 	err := readInput("data.txt", strings.NewReader("1 2\n\n\t3 x\n"), func(f float64) {
@@ -420,9 +462,16 @@ func TestRunFiles(t *testing.T) {
 
 	stdout.Reset()
 	stderr.Reset()
-	code = run(s, []string{filepath.Join(dir, "missing.txt")}, strings.NewReader(""), &stdout, &stderr)
-	if code != 1 || stdout.Len() != 0 || !strings.Contains(stderr.String(), "missing.txt:") {
+	missing := filepath.Join(dir, "missing.txt")
+	code = run(s, []string{missing}, strings.NewReader(""), &stdout, &stderr)
+	if code != 1 || stdout.Len() != 0 {
 		t.Fatalf("missing file code=%d stdout=%q stderr=%q", code, stdout.String(), stderr.String())
+	}
+	if diff := cmp.Diff(missing+": no such file or directory\n", stderr.String()); diff != "" {
+		t.Errorf("stderr mismatch (-want +got):\n%s", diff)
+	}
+	if strings.Contains(stderr.String(), "open ") {
+		t.Fatalf("stderr repeats the open path: %q", stderr.String())
 	}
 
 	empty := filepath.Join(dir, "empty.txt")

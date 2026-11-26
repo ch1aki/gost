@@ -41,6 +41,7 @@ func cli(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	}
 	parser := flags.NewParser(&opts, flags.Default)
 	parser.Name = "gost"
+	parser.Usage = "[OPTIONS] [FILE...]"
 	rest, err := parser.ParseArgs(args)
 	if err != nil {
 		var fe *flags.Error
@@ -133,10 +134,19 @@ func openInput(name string, stdin io.Reader) (io.ReadCloser, string, error) {
 	}
 	f, err := os.Open(name)
 	if err != nil {
-		return nil, "", fmt.Errorf("%s: %w", name, err)
+		var pe *os.PathError
+		if errors.As(err, &pe) {
+			return nil, "", fmt.Errorf("%s: %s", name, pe.Err)
+		}
+		return nil, "", err
 	}
 	return f, name, nil
 }
+
+// maxLineSize is the longest accepted line. A line may hold many numbers, so
+// this is far above bufio.Scanner's 64KiB default. A longer line still fails
+// with <file>:<line>: line too long.
+const maxLineSize = 8 << 20
 
 // inputError is a rejected record. Error text is "<name>:<line>: <reason>".
 type inputError struct {
@@ -150,14 +160,12 @@ func (e *inputError) Error() string {
 }
 
 // readInput scans r for whitespace-separated numbers. Blank lines are skipped.
-// Non-numeric, NaN, and Inf values, and lines longer than the scanner limit,
+// Non-numeric, NaN, and Inf values, and lines longer than maxLineSize,
 // return *inputError named with name and the line number.
-//
-// Lines past bufio.MaxScanTokenSize (64KiB) are rejected instead of being
-// dropped. A numeric token that long is not a useful float64, and growing
-// the buffer without a limit would hide the same class of read failure.
 func readInput(name string, r io.Reader, process func(float64)) error {
 	scanner := bufio.NewScanner(r)
+	buf := make([]byte, 0, 64*1024)
+	scanner.Buffer(buf, maxLineSize)
 	line := 0
 	for scanner.Scan() {
 		line++
