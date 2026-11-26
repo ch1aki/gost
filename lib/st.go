@@ -83,14 +83,23 @@ func (s *St) Output(writer io.Writer) {
 	}
 	if defaults || s.Stddev {
 		header = append(header, "STDDEV")
-		data = append(data, strconv.FormatFloat(s.stddev, 'f', -1, 64))
+		data = append(data, formatSampleMoment(s.stddev, s.count))
 	}
 	if s.Variance {
 		header = append(header, "VARIANCE")
-		data = append(data, strconv.FormatFloat(s.variance, 'f', -1, 64))
+		data = append(data, formatSampleMoment(s.variance, s.count))
 	}
 
 	s.Formatter(writer, header, [][]string{data})
+}
+
+// formatSampleMoment renders a sample variance or sample standard deviation.
+// Both are undefined for n < 2, so those cells are NA rather than 0 or NaN.
+func formatSampleMoment(v float64, n int64) string {
+	if n < 2 {
+		return "NA"
+	}
+	return strconv.FormatFloat(v, 'f', -1, 64)
 }
 
 func PlainTextFormatter(writer io.Writer, header []string, data [][]string) {

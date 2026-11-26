@@ -171,6 +171,101 @@ func TestRunTrimsAndSkipsBlanks(t *testing.T) {
 	if !strings.Contains(out, "2") || !strings.Contains(out, "1.5") {
 		t.Fatalf("stdout = %q, want count 2 and mean 1.5", out)
 	}
+	if strings.Contains(out, "NA") {
+		t.Fatalf("stdout = %q, two values should not render NA", out)
+	}
+}
+
+func TestRunNoValues(t *testing.T) {
+	tests := []struct {
+		name string
+		in   string
+	}{
+		{name: "empty", in: ""},
+		{name: "blank lines", in: "\n \n\t\n"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var stdout, stderr bytes.Buffer
+			outputCalled := false
+			s := &st.St{
+				Formatter: func(io.Writer, []string, [][]string) {
+					outputCalled = true
+				},
+			}
+			code := run(s, strings.NewReader(tt.in), &stdout, &stderr)
+			if code != 1 {
+				t.Fatalf("run() = %d, want 1", code)
+			}
+			if outputCalled {
+				t.Fatal("table written for empty input")
+			}
+			if stdout.Len() != 0 {
+				t.Fatalf("stdout = %q, want empty", stdout.String())
+			}
+			if diff := cmp.Diff("stdin: no values\n", stderr.String()); diff != "" {
+				t.Errorf("stderr mismatch (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+func TestRunOneValue(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	var header, row []string
+	s := &st.St{
+		Formatter: func(w io.Writer, h []string, data [][]string) {
+			header = append([]string(nil), h...)
+			row = append([]string(nil), data[0]...)
+			io.WriteString(w, strings.Join(row, ","))
+		},
+		Count:    true,
+		Min:      true,
+		Max:      true,
+		Sum:      true,
+		Mean:     true,
+		Stddev:   true,
+		Variance: true,
+	}
+	code := run(s, strings.NewReader("5\n"), &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("run() = %d, stderr = %s", code, stderr.String())
+	}
+	if stderr.Len() != 0 {
+		t.Fatalf("stderr = %q, want empty", stderr.String())
+	}
+	check := func(want, got []string) {
+		t.Helper()
+		if diff := cmp.Diff(want, got); diff != "" {
+			t.Errorf("mismatch (-want +got):\n%s", diff)
+		}
+	}
+	check([]string{"N", "MIN", "MAX", "SUM", "MEAN", "STDDEV", "VARIANCE"}, header)
+	check([]string{"1", "5", "5", "5", "5", "NA", "NA"}, row)
+	if diff := cmp.Diff("1,5,5,5,5,NA,NA", stdout.String()); diff != "" {
+		t.Errorf("stdout mismatch (-want +got):\n%s", diff)
+	}
+}
+
+func TestRunOneValuePlainText(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	s := &st.St{Formatter: st.PlainTextFormatter}
+	code := run(s, strings.NewReader("5\n"), &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("run() = %d, stderr = %s", code, stderr.String())
+	}
+	if stderr.Len() != 0 {
+		t.Fatalf("stderr = %q, want empty", stderr.String())
+	}
+	out := stdout.String()
+	if !strings.Contains(out, "NA") || strings.Contains(out, "NaN") {
+		t.Fatalf("stdout = %q, want NA and not NaN", out)
+	}
+	for _, col := range []string{"N", "MIN", "MAX", "SUM", "MEAN", "STDDEV"} {
+		if !strings.Contains(out, col) {
+			t.Fatalf("stdout = %q, missing %s", out, col)
+		}
+	}
 }
 
 // errReader fails on the first read, so Scanner.Err must be checked.

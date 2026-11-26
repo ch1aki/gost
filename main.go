@@ -64,8 +64,17 @@ func main() {
 // run reads numbers from r into s and, on success, writes the table to stdout.
 // Input errors are written to stderr as a single line and return 1 without a table.
 func run(s *st.St, r io.Reader, stdout, stderr io.Writer) int {
-	if err := readInput(r, s.Process); err != nil {
+	n := 0
+	err := readInput(r, func(v float64) {
+		n++
+		s.Process(v)
+	})
+	if err != nil {
 		fmt.Fprintln(stderr, err.Error())
+		return 1
+	}
+	if n == 0 {
+		fmt.Fprintln(stderr, "stdin: no values")
 		return 1
 	}
 	s.Output(stdout)

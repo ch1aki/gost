@@ -128,12 +128,8 @@ func TestProcessMoments(t *testing.T) {
 	// Sample variance of 1..n is n(n+1)/12. For n=100 that is 2525/3.
 	seqVar := 100.0 * 101.0 / 12.0
 
-	// TODO(B1): n=0 and n=1 below lock the current buggy results so CI stays
-	// green. They are not the intended statistics.
-	//   n=0: Process is never called, so min/max/mean/variance/stddev stay 0.
-	//        Planned fix: reject empty input instead of reporting zeros.
-	//   n=1: sample variance divides by n-1 and becomes NaN.
-	//        Planned fix: report NA for sample variance and stddev when n < 2.
+	// n=0 is rejected by the CLI (no table). n=1 prints NA for the sample
+	// moments; see TestFewSamples.
 	tests := []struct {
 		name  string
 		input []float64
@@ -165,29 +161,10 @@ func TestProcessMoments(t *testing.T) {
 				Stddev:   1,
 			},
 		},
-		{
-			name:  "n=0",
-			input: nil,
-			want:  moments{},
-		},
-		{
-			name:  "n=1",
-			input: []float64{5},
-			want: moments{
-				Count:    1,
-				Min:      5,
-				Max:      5,
-				Sum:      5,
-				Mean:     5,
-				Variance: math.NaN(),
-				Stddev:   math.NaN(),
-			},
-		},
 	}
 
 	opt := cmp.Options{
 		cmpopts.EquateApprox(0, 1e-12),
-		cmpopts.EquateNaNs(),
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -205,6 +182,52 @@ func TestProcessMoments(t *testing.T) {
 				Stddev:   s.stddev,
 			}
 			checkDiff(t, tt.want, got, opt)
+		})
+	}
+}
+
+func TestFewSamples(t *testing.T) {
+	tests := []struct {
+		name   string
+		input  float64
+		st     St
+		header []string
+		row    []string
+	}{
+		{
+			name:   "n=1 defaults",
+			input:  5,
+			header: []string{"N", "MIN", "MAX", "SUM", "MEAN", "STDDEV"},
+			row:    []string{"1", "5", "5", "5", "5", "NA"},
+		},
+		{
+			name:   "n=1 with variance",
+			input:  5,
+			st:     St{Count: true, Min: true, Max: true, Sum: true, Mean: true, Stddev: true, Variance: true},
+			header: []string{"N", "MIN", "MAX", "SUM", "MEAN", "STDDEV", "VARIANCE"},
+			row:    []string{"1", "5", "5", "5", "5", "NA", "NA"},
+		},
+		{
+			name:   "n=1 negative",
+			input:  -4,
+			st:     St{Min: true, Max: true, Sum: true, Mean: true, Stddev: true, Variance: true},
+			header: []string{"MIN", "MAX", "SUM", "MEAN", "STDDEV", "VARIANCE"},
+			row:    []string{"-4", "-4", "-4", "-4", "NA", "NA"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := tt.st
+			var header []string
+			var row []string
+			s.Formatter = func(_ io.Writer, h []string, data [][]string) {
+				header = append([]string(nil), h...)
+				row = append([]string(nil), data[0]...)
+			}
+			s.Process(tt.input)
+			s.Output(io.Discard)
+			checkDiff(t, tt.header, header)
+			checkDiff(t, tt.row, row)
 		})
 	}
 }
