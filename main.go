@@ -41,7 +41,8 @@ func cli(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	}
 	parser := flags.NewParser(&opts, flags.Default)
 	parser.Name = "gost"
-	if _, err := parser.ParseArgs(args); err != nil {
+	rest, err := parser.ParseArgs(args)
+	if err != nil {
 		var fe *flags.Error
 		if errors.As(err, &fe) && fe.Type == flags.ErrHelp {
 			return 0
@@ -71,7 +72,7 @@ func cli(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 		Variance: opts.Vatiance,
 	}
 
-	return run(&s, stdin, stdout, stderr)
+	return run(&s, rest, stdin, stdout, stderr)
 }
 
 // validateFloatFormat reports whether format is a fmt verb string that
@@ -87,67 +88,96 @@ func validateFloatFormat(format string) error {
 	return nil
 }
 
-// run reads numbers from r into s and, on success, writes the table to stdout.
-// Input errors are written to stderr as a single line and return 1 without a table.
-func run(s *st.St, r io.Reader, stdout, stderr io.Writer) int {
+// run reads numbers from files into s and, on success, writes one table to stdout.
+// No files, or "-", means stdin. Files are concatenated. Input errors are one
+// stderr line and return 1 without a table.
+func run(s *st.St, files []string, stdin io.Reader, stdout, stderr io.Writer) int {
+	if len(files) == 0 {
+		files = []string{"-"}
+	}
 	n := 0
-	err := readInput(r, func(v float64) {
-		n++
-		s.Process(v)
-	})
-	if err != nil {
-		fmt.Fprintln(stderr, err.Error())
-		return 1
+	for _, name := range files {
+		rc, label, err := openInput(name, stdin)
+		if err != nil {
+			fmt.Fprintln(stderr, err.Error())
+			return 1
+		}
+		err = readInput(label, rc, func(v float64) {
+			n++
+			s.Process(v)
+		})
+		rc.Close()
+		if err != nil {
+			fmt.Fprintln(stderr, err.Error())
+			return 1
+		}
 	}
 	if n == 0 {
-		fmt.Fprintln(stderr, "stdin: no values")
+		label := "stdin"
+		if len(files) == 1 && files[0] != "-" {
+			label = files[0]
+		} else if len(files) != 1 {
+			fmt.Fprintln(stderr, "no values")
+			return 1
+		}
+		fmt.Fprintf(stderr, "%s: no values\n", label)
 		return 1
 	}
 	s.Output(stdout)
 	return 0
 }
 
-// inputError is a rejected stdin record. Error text is "stdin:<line>: <reason>".
+func openInput(name string, stdin io.Reader) (io.ReadCloser, string, error) {
+	if name == "-" {
+		return io.NopCloser(stdin), "stdin", nil
+	}
+	f, err := os.Open(name)
+	if err != nil {
+		return nil, "", fmt.Errorf("%s: %w", name, err)
+	}
+	return f, name, nil
+}
+
+// inputError is a rejected record. Error text is "<name>:<line>: <reason>".
 type inputError struct {
+	name   string
 	line   int
 	reason string
 }
 
 func (e *inputError) Error() string {
-	return fmt.Sprintf("stdin:%d: %s", e.line, e.reason)
+	return fmt.Sprintf("%s:%d: %s", e.name, e.line, e.reason)
 }
 
-// readInput scans r as one number per line. Blank lines are skipped.
-// Surrounding whitespace is ignored. Non-numeric, NaN, and Inf values,
-// and lines longer than the scanner limit, return *inputError.
+// readInput scans r for whitespace-separated numbers. Blank lines are skipped.
+// Non-numeric, NaN, and Inf values, and lines longer than the scanner limit,
+// return *inputError named with name and the line number.
 //
 // Lines past bufio.MaxScanTokenSize (64KiB) are rejected instead of being
 // dropped. A numeric token that long is not a useful float64, and growing
 // the buffer without a limit would hide the same class of read failure.
-func readInput(r io.Reader, process func(float64)) error {
+func readInput(name string, r io.Reader, process func(float64)) error {
 	scanner := bufio.NewScanner(r)
 	line := 0
 	for scanner.Scan() {
 		line++
-		text := strings.TrimSpace(scanner.Text())
-		if text == "" {
-			continue
+		for _, text := range strings.Fields(scanner.Text()) {
+			f, err := strconv.ParseFloat(text, 64)
+			if math.IsNaN(f) || math.IsInf(f, 0) {
+				return &inputError{name: name, line: line, reason: fmt.Sprintf("unsupported value %q", text)}
+			}
+			if err != nil {
+				return &inputError{name: name, line: line, reason: fmt.Sprintf("invalid number %q", text)}
+			}
+			process(f)
 		}
-		f, err := strconv.ParseFloat(text, 64)
-		if math.IsNaN(f) || math.IsInf(f, 0) {
-			return &inputError{line: line, reason: fmt.Sprintf("unsupported value %q", text)}
-		}
-		if err != nil {
-			return &inputError{line: line, reason: fmt.Sprintf("invalid number %q", text)}
-		}
-		process(f)
 	}
 	if err := scanner.Err(); err != nil {
 		line++
 		if errors.Is(err, bufio.ErrTooLong) {
-			return &inputError{line: line, reason: "line too long"}
+			return &inputError{name: name, line: line, reason: "line too long"}
 		}
-		return &inputError{line: line, reason: err.Error()}
+		return &inputError{name: name, line: line, reason: err.Error()}
 	}
 	return nil
 }
