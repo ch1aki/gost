@@ -1,12 +1,12 @@
 package main
 
 import (
-	"bufio"
 	"bytes"
 	"errors"
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -25,6 +25,9 @@ func TestHelpExitsZero(t *testing.T) {
 			}
 			if !strings.Contains(text, "fixed-point decimal") || strings.Contains(text, "outpuut") || strings.Contains(text, "default: %g") {
 				t.Fatalf("help text = %q", text)
+			}
+			if !strings.Contains(text, "[OPTIONS] [FILE...]") {
+				t.Fatalf("help text = %q, want file arguments in Usage", text)
 			}
 		})
 	}
@@ -123,7 +126,7 @@ func captureOS(t *testing.T) func() string {
 }
 
 func TestReadInput(t *testing.T) {
-	long := strings.Repeat("1", bufio.MaxScanTokenSize) + "\n"
+	long := strings.Repeat("1", maxLineSize+1) + "\n"
 
 	tests := []struct {
 		name    string
@@ -204,7 +207,7 @@ func TestReadInput(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			var got []float64
-			err := readInput(strings.NewReader(tt.in), func(f float64) {
+			err := readInput("stdin", strings.NewReader(tt.in), func(f float64) {
 				got = append(got, f)
 			})
 			if tt.wantErr == "" {
@@ -228,7 +231,7 @@ func TestReadInput(t *testing.T) {
 }
 
 func TestReadInputScannerError(t *testing.T) {
-	err := readInput(errReader{errors.New("boom")}, func(float64) {
+	err := readInput("stdin", errReader{errors.New("boom")}, func(float64) {
 		t.Fatal("process called")
 	})
 	var ie *inputError
@@ -248,7 +251,7 @@ func TestRunRejectsBadInputWithoutOutput(t *testing.T) {
 			outputCalled = true
 		},
 	}
-	code := run(s, strings.NewReader("1\nx\n"), &stdout, &stderr)
+	code := run(s, nil, strings.NewReader("1\nx\n"), &stdout, &stderr)
 	if code != 1 {
 		t.Fatalf("run() = %d, want 1", code)
 	}
@@ -270,7 +273,7 @@ func TestRunTrimsAndSkipsBlanks(t *testing.T) {
 		Count:     true,
 		Mean:      true,
 	}
-	code := run(s, strings.NewReader(" \n1\n\n 2 \n"), &stdout, &stderr)
+	code := run(s, nil, strings.NewReader(" \n1\n\n 2 \n"), &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("run() = %d, stderr = %s", code, stderr.String())
 	}
@@ -303,7 +306,7 @@ func TestRunNoValues(t *testing.T) {
 					outputCalled = true
 				},
 			}
-			code := run(s, strings.NewReader(tt.in), &stdout, &stderr)
+			code := run(s, nil, strings.NewReader(tt.in), &stdout, &stderr)
 			if code != 1 {
 				t.Fatalf("run() = %d, want 1", code)
 			}
@@ -337,7 +340,7 @@ func TestRunOneValue(t *testing.T) {
 		Stddev:   true,
 		Variance: true,
 	}
-	code := run(s, strings.NewReader("5\n"), &stdout, &stderr)
+	code := run(s, nil, strings.NewReader("5\n"), &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("run() = %d, stderr = %s", code, stderr.String())
 	}
@@ -360,7 +363,7 @@ func TestRunOneValue(t *testing.T) {
 func TestRunOneValuePlainText(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	s := &st.St{Formatter: st.PlainTextFormatter}
-	code := run(s, strings.NewReader("5\n"), &stdout, &stderr)
+	code := run(s, nil, strings.NewReader("5\n"), &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("run() = %d, stderr = %s", code, stderr.String())
 	}
@@ -375,6 +378,166 @@ func TestRunOneValuePlainText(t *testing.T) {
 		if !strings.Contains(out, col) {
 			t.Fatalf("stdout = %q, missing %s", out, col)
 		}
+	}
+}
+
+func TestReadInputLongLineOfNumbers(t *testing.T) {
+	var b strings.Builder
+	const n = 20000
+	for i := 1; i <= n; i++ {
+		if i > 1 {
+			b.WriteByte(' ')
+		}
+		fmt.Fprintf(&b, "%d", i)
+	}
+	b.WriteString(" x\n")
+	var got []float64
+	err := readInput("nums.txt", strings.NewReader(b.String()), func(f float64) {
+		got = append(got, f)
+	})
+	var ie *inputError
+	if !errors.As(err, &ie) {
+		t.Fatalf("readInput() error = %v", err)
+	}
+	if diff := cmp.Diff("nums.txt:1: invalid number \"x\"", err.Error()); diff != "" {
+		t.Errorf("error mismatch (-want +got):\n%s", diff)
+	}
+	if len(got) != n || got[0] != 1 || got[n-1] != n {
+		t.Fatalf("processed %d values, first=%v last=%v", len(got), first(got), last(got))
+	}
+}
+
+func first(v []float64) float64 {
+	if len(v) == 0 {
+		return 0
+	}
+	return v[0]
+}
+
+func last(v []float64) float64 {
+	if len(v) == 0 {
+		return 0
+	}
+	return v[len(v)-1]
+}
+
+func TestReadInputWhitespaceAndName(t *testing.T) {
+	var got []float64
+	err := readInput("data.txt", strings.NewReader("1 2\n\n\t3 x\n"), func(f float64) {
+		got = append(got, f)
+	})
+	var ie *inputError
+	if !errors.As(err, &ie) {
+		t.Fatalf("readInput() error = %v", err)
+	}
+	if diff := cmp.Diff("data.txt:3: invalid number \"x\"", err.Error()); diff != "" {
+		t.Errorf("error mismatch (-want +got):\n%s", diff)
+	}
+	if diff := cmp.Diff([]float64{1, 2, 3}, got); diff != "" {
+		t.Errorf("values mismatch (-want +got):\n%s", diff)
+	}
+}
+
+func TestRunFiles(t *testing.T) {
+	dir := t.TempDir()
+	a := filepath.Join(dir, "a.txt")
+	b := filepath.Join(dir, "b.txt")
+	if err := os.WriteFile(a, []byte("1 2\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(b, []byte("\n3\t4\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	var stdout, stderr bytes.Buffer
+	var header, row []string
+	s := &st.St{
+		Count: true,
+		Sum:   true,
+		Formatter: func(_ io.Writer, h []string, data [][]string) {
+			header = append([]string(nil), h...)
+			row = append([]string(nil), data[0]...)
+		},
+	}
+	code := run(s, []string{a, "-", b}, strings.NewReader("5\n"), &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("run() = %d, stderr = %s", code, stderr.String())
+	}
+	if diff := cmp.Diff([]string{"N", "SUM"}, header); diff != "" {
+		t.Errorf("header mismatch (-want +got):\n%s", diff)
+	}
+	if diff := cmp.Diff([]string{"5", "15"}, row); diff != "" {
+		t.Errorf("N and SUM mismatch (-want +got):\n%s", diff)
+	}
+
+	stdout.Reset()
+	stderr.Reset()
+	missing := filepath.Join(dir, "missing.txt")
+	code = run(s, []string{missing}, strings.NewReader(""), &stdout, &stderr)
+	if code != 1 || stdout.Len() != 0 {
+		t.Fatalf("missing file code=%d stdout=%q stderr=%q", code, stdout.String(), stderr.String())
+	}
+	if diff := cmp.Diff(missing+": no such file or directory\n", stderr.String()); diff != "" {
+		t.Errorf("stderr mismatch (-want +got):\n%s", diff)
+	}
+	if strings.Contains(stderr.String(), "open ") {
+		t.Fatalf("stderr repeats the open path: %q", stderr.String())
+	}
+
+	empty := filepath.Join(dir, "empty.txt")
+	if err := os.WriteFile(empty, []byte(" \n\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	stdout.Reset()
+	stderr.Reset()
+	code = run(&st.St{Formatter: st.PlainTextFormatter}, []string{empty}, strings.NewReader(""), &stdout, &stderr)
+	if code != 1 || stdout.Len() != 0 {
+		t.Fatalf("empty file code=%d stdout=%q", code, stdout.String())
+	}
+	if diff := cmp.Diff(empty+": no values\n", stderr.String()); diff != "" {
+		t.Errorf("stderr mismatch (-want +got):\n%s", diff)
+	}
+
+	empty2 := filepath.Join(dir, "empty2.txt")
+	if err := os.WriteFile(empty2, []byte("\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	stdout.Reset()
+	stderr.Reset()
+	code = run(&st.St{Formatter: st.PlainTextFormatter}, []string{empty, empty2}, strings.NewReader(""), &stdout, &stderr)
+	if code != 1 || stdout.Len() != 0 {
+		t.Fatalf("empty files code=%d stdout=%q", code, stdout.String())
+	}
+	if diff := cmp.Diff(empty+", "+empty2+": no values\n", stderr.String()); diff != "" {
+		t.Errorf("stderr mismatch (-want +got):\n%s", diff)
+	}
+
+	stdout.Reset()
+	stderr.Reset()
+	code = run(&st.St{Formatter: st.PlainTextFormatter}, []string{dir}, strings.NewReader(""), &stdout, &stderr)
+	if code != 1 || stdout.Len() != 0 {
+		t.Fatalf("directory code=%d stdout=%q", code, stdout.String())
+	}
+	if diff := cmp.Diff(dir+": is a directory\n", stderr.String()); diff != "" {
+		t.Errorf("stderr mismatch (-want +got):\n%s", diff)
+	}
+}
+
+func TestCLIFileArgs(t *testing.T) {
+	restore := captureOS(t)
+	defer restore()
+	dir := t.TempDir()
+	name := filepath.Join(dir, "nums.txt")
+	if err := os.WriteFile(name, []byte("1 x\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	var stdout, stderr bytes.Buffer
+	code := cli([]string{"-N", name}, strings.NewReader("9\n"), &stdout, &stderr)
+	if code != 1 || stdout.Len() != 0 {
+		t.Fatalf("cli() = %d, stdout = %q, stderr = %s", code, stdout.String(), stderr.String())
+	}
+	if diff := cmp.Diff(name+":1: invalid number \"x\"\n", stderr.String()); diff != "" {
+		t.Errorf("stderr mismatch (-want +got):\n%s", diff)
 	}
 }
 
