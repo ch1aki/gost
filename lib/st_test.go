@@ -231,3 +231,25 @@ func TestFewSamples(t *testing.T) {
 		})
 	}
 }
+
+func TestFormatVerb(t *testing.T) {
+	s := St{
+		Format:   "%.2f",
+		Count:    true,
+		Mean:     true,
+		Stddev:   true,
+		Variance: true,
+	}
+	for _, v := range []float64{1, 2} {
+		s.Process(v)
+	}
+	var header, row []string
+	s.Formatter = func(_ io.Writer, h []string, data [][]string) {
+		header = append([]string(nil), h...)
+		row = append([]string(nil), data[0]...)
+	}
+	s.Output(io.Discard)
+	checkDiff(t, []string{"N", "MEAN", "STDDEV", "VARIANCE"}, header)
+	// N stays an integer. Sample variance of {1, 2} is 0.5.
+	checkDiff(t, []string{"2", "1.50", "0.71", "0.50"}, row)
+}
